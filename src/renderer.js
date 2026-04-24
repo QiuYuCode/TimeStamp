@@ -115,9 +115,33 @@ function bindWindowControls() {
     }
     window.api.quit();
   });
+  bindFullscreenEdgeReveal();
 
   window.api.onWindowState((s) => applyWindowState(s));
   window.api.getWindowState().then(applyWindowState).catch(() => {});
+}
+
+let fsLastPointerY = 999;
+function bindFullscreenEdgeReveal() {
+  const titlebar = document.querySelector('.titlebar');
+  if (!titlebar) return;
+  document.addEventListener('mousemove', (e) => {
+    fsLastPointerY = e.clientY;
+    if (!document.body.classList.contains('is-fullscreen')) return;
+    if (e.clientY <= 3) {
+      document.body.classList.add('show-fs-titlebar');
+      return;
+    }
+    if (e.clientY > 60 && !titlebar.matches(':hover')) {
+      document.body.classList.remove('show-fs-titlebar');
+    }
+  });
+  titlebar.addEventListener('mouseleave', () => {
+    if (!document.body.classList.contains('is-fullscreen')) return;
+    if (fsLastPointerY > 60) {
+      document.body.classList.remove('show-fs-titlebar');
+    }
+  });
 }
 
 let fsPending = false;
@@ -126,6 +150,7 @@ function requestExitFullScreen() {
   if (!document.body.classList.contains('is-fullscreen')) return;
   fsPending = true;
   document.body.classList.remove('is-fullscreen');
+  document.body.classList.remove('show-fs-titlebar');
   updateFullscreenButton(false);
   Promise.resolve(window.api.exitFullScreen())
     .catch(() => {})
@@ -136,6 +161,7 @@ function requestToggleFullScreen() {
   fsPending = true;
   const next = !document.body.classList.contains('is-fullscreen');
   document.body.classList.toggle('is-fullscreen', next);
+  document.body.classList.toggle('show-fs-titlebar', false);
   updateFullscreenButton(next);
   Promise.resolve(window.api.toggleFullScreen())
     .catch(() => {})
@@ -152,6 +178,9 @@ function applyWindowState(s) {
   if (!s) return;
   document.body.classList.toggle('is-maximized', !!s.maximized);
   document.body.classList.toggle('is-fullscreen', !!s.fullscreen);
+  if (!s.fullscreen) {
+    document.body.classList.remove('show-fs-titlebar');
+  }
   updateFullscreenButton(!!s.fullscreen);
 }
 
@@ -177,22 +206,6 @@ function formatTime(ms) {
     ms: String(milli).padStart(3, '0'),
     str: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(milli).padStart(3, '0')}`
   };
-}
-
-// 第 1 次计次实质是"从开始到首次点击 lap"的初始段，不与后续段对比。
-// 只有当至少有 2 个可对比段（总计 >= 3 次 lap）时才标记最快/最慢。
-function computeBestWorstLap(laps) {
-  if (!laps || laps.length < 3) return { best: -1, worst: -1 };
-  let best = 1, worst = 1;
-  let bestVal = laps[1].splitMs;
-  let worstVal = laps[1].splitMs;
-  for (let i = 2; i < laps.length; i++) {
-    const v = laps[i].splitMs;
-    if (v < bestVal) { bestVal = v; best = i; }
-    if (v > worstVal) { worstVal = v; worst = i; }
-  }
-  if (best === worst) return { best: -1, worst: -1 };
-  return { best, worst };
 }
 
 function startTicker() {
@@ -311,19 +324,12 @@ function renderLaps() {
     return;
   }
 
-  const { best, worst } = computeBestWorstLap(state.timer.laps);
-
   const rows = [...state.timer.laps].reverse().map((lap) => {
-    const idxFromStart = state.timer.laps.indexOf(lap);
-    const flagBest = idxFromStart === best ? '🏅 最快' : '';
-    const flagWorst = idxFromStart === worst ? '🐢 最慢' : '';
-    const cls = idxFromStart === best ? 'best' : (idxFromStart === worst ? 'worst' : '');
     return `
-      <div class="lap-row ${cls}">
+      <div class="lap-row">
         <div class="lap-idx">#${lap.index}</div>
         <div class="lap-split">+${formatTime(lap.splitMs).str}</div>
         <div class="lap-total">${formatTime(lap.totalMs).str}</div>
-        <div class="lap-flag">${flagBest || flagWorst}</div>
       </div>
     `;
   }).join('');
@@ -575,18 +581,13 @@ function openDetailModal(sid) {
   const g = state.data.groups.find((x) => x.id === s.groupId);
   $('#detail-title').textContent = s.name;
 
-  const { best, worst } = computeBestWorstLap(s.laps);
-
   const lapsHtml = s.laps.length
-    ? s.laps.map((lap, i) => {
-        const cls = i === best ? 'best' : (i === worst ? 'worst' : '');
-        const flag = i === best ? '🏅 最快' : (i === worst ? '🐢 最慢' : '');
+    ? s.laps.map((lap) => {
         return `
-          <div class="lap-row ${cls}">
+          <div class="lap-row">
             <div class="lap-idx">#${lap.index}</div>
             <div class="lap-split">+${formatTime(lap.splitMs).str}</div>
             <div class="lap-total">${formatTime(lap.totalMs).str}</div>
-            <div class="lap-flag">${flag}</div>
           </div>
         `;
       }).join('')
