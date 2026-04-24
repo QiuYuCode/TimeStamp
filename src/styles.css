@@ -272,8 +272,8 @@ body.is-fullscreen .app {
 /* ---------- Main Area ---------- */
 .main-area {
   grid-area: main;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(360px, 8fr) minmax(180px, 2fr);
   gap: 16px;
   min-height: 0;
 }
@@ -285,7 +285,12 @@ body.is-fullscreen .app {
   padding: 28px 32px 24px;
   position: relative;
   overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
+
 .timer-panel::before {
   content: '';
   position: absolute;
@@ -423,7 +428,6 @@ body.is-fullscreen .app {
 
 /* ---------- Laps Panel ---------- */
 .laps-panel {
-  flex: 1;
   min-height: 0;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -691,6 +695,9 @@ body.is-fullscreen .app {
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+.form-grid .span-2 {
+  grid-column: 1 / -1;
+}
 .form-grid label,
 .stacked {
   display: flex;
@@ -826,6 +833,9 @@ select:focus { border-color: var(--accent); }
   }
 }
 @media (max-width: 920px) {
+  .main-area {
+    grid-template-rows: minmax(300px, 7fr) minmax(170px, 3fr);
+  }
   .app {
     grid-template-columns: 1fr;
     grid-template-areas:

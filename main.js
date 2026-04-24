@@ -38,7 +38,8 @@ function defaultData() {
       bgColor: '#0a0a0a',
       surfaceColor: '#161616',
       textColor: '#f5f5f5',
-      theme: 'black-gold'
+      theme: 'black-gold',
+      displayRefreshHz: 30
     },
     groups: [
       { id: 'default', name: '默认分组', createdAt: Date.now() }

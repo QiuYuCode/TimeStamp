@@ -8,7 +8,7 @@ const PRESETS = {
   'ivory':      { accentColor: '#b8860b', bgColor: '#f7f5ef', surfaceColor: '#ffffff', textColor: '#1a1a1a' }
 };
 
-const DEFAULT_SETTINGS = { ...PRESETS['black-gold'], theme: 'black-gold' };
+const DEFAULT_SETTINGS = { ...PRESETS['black-gold'], theme: 'black-gold', displayRefreshHz: 30 };
 
 const state = {
   data: null,
@@ -18,6 +18,7 @@ const state = {
     startedAt: 0,
     elapsedBeforeStart: 0,
     tickHandle: null,
+    lastDisplayPaintAt: 0,
     laps: []
   },
   pendingSaveBeforeReset: false
@@ -45,7 +46,8 @@ async function init() {
 }
 
 function ensureDefaults() {
-  if (!state.data.settings) state.data.settings = { ...DEFAULT_SETTINGS };
+  state.data.settings = { ...DEFAULT_SETTINGS, ...(state.data.settings || {}) };
+  state.data.settings.displayRefreshHz = normalizeRefreshHz(state.data.settings.displayRefreshHz);
   if (!state.data.groups?.length) {
     state.data.groups = [{ id: 'default', name: '默认分组', createdAt: Date.now() }];
   }
@@ -214,16 +216,30 @@ function formatTime(ms) {
 }
 
 function startTicker() {
-  const tick = () => {
+  const tick = (now) => {
     if (state.timer.running) {
-      renderTimerDisplay();
+      const minGap = 1000 / normalizeRefreshHz(state.data.settings.displayRefreshHz);
+      if ((now - state.timer.lastDisplayPaintAt) >= minGap) {
+        state.timer.lastDisplayPaintAt = now;
+        renderTimerDisplay();
+      }
     }
     state.timer.tickHandle = requestAnimationFrame(tick);
   };
   state.timer.tickHandle = requestAnimationFrame(tick);
 }
 
-function renderTimerDisplay() {
+function normalizeRefreshHz(value) {
+  const allowed = [10, 20, 30, 60];
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 30;
+  return allowed.includes(n) ? n : 30;
+}
+
+function renderTimerDisplay(force = false) {
+  if (force) {
+    state.timer.lastDisplayPaintAt = 0;
+  }
   const t = formatTime(currentElapsed());
   const d = $('#timer-display');
   d.querySelector('.t-hh').textContent = t.hh;
@@ -247,10 +263,11 @@ function toggleStart() {
     state.timer.running = false;
   } else {
     state.timer.startedAt = performance.now();
+    state.timer.lastDisplayPaintAt = 0;
     state.timer.running = true;
   }
   renderTimerState();
-  renderTimerDisplay();
+  renderTimerDisplay(true);
 }
 
 function recordLap() {
@@ -287,7 +304,7 @@ async function resetTimer() {
   state.timer.startedAt = 0;
   state.timer.laps = [];
   renderTimerState();
-  renderTimerDisplay();
+  renderTimerDisplay(true);
   renderLaps();
 }
 
@@ -462,7 +479,7 @@ function bindSettingsModal() {
     btn.addEventListener('click', () => {
       const k = btn.dataset.preset;
       const preset = PRESETS[k];
-      state.data.settings = { ...preset, theme: k };
+      state.data.settings = { ...state.data.settings, ...preset, theme: k };
       applyTheme(state.data.settings);
       syncColorInputs();
       persist();
@@ -482,6 +499,11 @@ function bindSettingsModal() {
   bind('#input-bg', 'bgColor');
   bind('#input-surface', 'surfaceColor');
   bind('#input-text', 'textColor');
+  $('#input-refresh-rate').addEventListener('change', async (e) => {
+    state.data.settings.displayRefreshHz = normalizeRefreshHz(e.target.value);
+    await persist();
+    toast(`已切换刷新率：${state.data.settings.displayRefreshHz}Hz`);
+  });
 
   $('#btn-reset-theme').addEventListener('click', () => {
     state.data.settings = { ...DEFAULT_SETTINGS };
@@ -502,6 +524,7 @@ function syncColorInputs() {
   $('#input-bg').value = state.data.settings.bgColor;
   $('#input-surface').value = state.data.settings.surfaceColor;
   $('#input-text').value = state.data.settings.textColor;
+  $('#input-refresh-rate').value = String(normalizeRefreshHz(state.data.settings.displayRefreshHz));
 }
 
 // ---------- Group modal ----------
