@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;" />
+  <title>TimeStamp</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- 自定义标题栏 -->
+  <header class="titlebar">
+    <div class="titlebar-drag">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span class="brand-name">TimeStamp</span>
+      </div>
+    </div>
+    <div class="titlebar-actions">
+      <button class="win-btn" id="btn-min" title="最小化">&#8211;</button>
+      <button class="win-btn" id="btn-max" title="最大化">&#9634;</button>
+      <button class="win-btn win-btn-close" id="btn-close" title="关闭">&#10005;</button>
+    </div>
+  </header>
+
+  <main class="app">
+    <!-- 侧边栏：分组 + 设置 -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-header">
+          <span class="sidebar-title">分组</span>
+          <button class="icon-btn" id="btn-add-group" title="新建分组">+</button>
+        </div>
+        <ul class="group-list" id="group-list"></ul>
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="ghost-btn" id="btn-settings">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          外观与主题
+        </button>
+        <button class="ghost-btn danger" id="btn-quit">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          退出 TimeStamp
+        </button>
+      </div>
+    </aside>
+
+    <!-- 主区域：计时器 -->
+    <section class="main-area">
+      <div class="timer-panel">
+        <div class="timer-meta">
+          <span class="timer-group-label" id="current-group-label">默认分组</span>
+          <span class="timer-state" id="timer-state">就绪</span>
+        </div>
+
+        <div class="timer-display" id="timer-display">
+          <span class="t-hh">00</span><span class="t-sep">:</span><span class="t-mm">00</span><span class="t-sep">:</span><span class="t-ss">00</span><span class="t-ms">.000</span>
+        </div>
+
+        <div class="timer-actions">
+          <button class="action-btn primary" id="btn-start">开始</button>
+          <button class="action-btn secondary" id="btn-lap" disabled>计次</button>
+          <button class="action-btn danger" id="btn-reset" disabled>复位</button>
+          <button class="action-btn save" id="btn-save" disabled>保存</button>
+        </div>
+
+        <div class="shortcut-hint">
+          <kbd>A</kbd> 开始/停止 &nbsp;&nbsp; <kbd>S</kbd> 计次 &nbsp;&nbsp; <kbd>C</kbd> 复位 &nbsp;&nbsp; <kbd>Enter</kbd> 保存
+        </div>
+      </div>
+
+      <!-- 当前计次列表 -->
+      <div class="laps-panel">
+        <div class="panel-header">
+          <span class="panel-title">当前计次</span>
+          <span class="panel-count" id="laps-count">0</span>
+        </div>
+        <div class="laps-list" id="laps-list">
+          <div class="empty-hint">点击"计次"或按 <kbd>S</kbd> 记录分段时间</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右侧：历史记录 -->
+    <aside class="history-panel">
+      <div class="panel-header">
+        <span class="panel-title">历史记录</span>
+        <div class="history-tools">
+          <select id="history-filter" class="mini-select">
+            <option value="__current__">当前分组</option>
+            <option value="__all__">全部分组</option>
+          </select>
+        </div>
+      </div>
+      <div class="history-list" id="history-list">
+        <div class="empty-hint">暂无历史记录</div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- 设置弹层 -->
+  <div class="modal-root" id="settings-modal" hidden>
+    <div class="modal-mask" data-close-modal></div>
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title">外观与主题</span>
+        <button class="icon-btn" data-close-modal>&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <div class="preset-row">
+          <button class="preset" data-preset="black-gold" style="--p-bg:#0a0a0a;--p-accent:#d4af37;">黑金</button>
+          <button class="preset" data-preset="midnight" style="--p-bg:#0b1020;--p-accent:#7c9cff;">午夜蓝</button>
+          <button class="preset" data-preset="forest" style="--p-bg:#0b1a12;--p-accent:#38d39f;">森林绿</button>
+          <button class="preset" data-preset="rose" style="--p-bg:#1a0b12;--p-accent:#ff6b9d;">玫瑰粉</button>
+          <button class="preset" data-preset="ivory" style="--p-bg:#f7f5ef;--p-accent:#b8860b;">象牙白</button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            <span>强调色</span>
+            <input type="color" id="input-accent" />
+          </label>
+          <label>
+            <span>背景色</span>
+            <input type="color" id="input-bg" />
+          </label>
+          <label>
+            <span>卡片色</span>
+            <input type="color" id="input-surface" />
+          </label>
+          <label>
+            <span>文字色</span>
+            <input type="color" id="input-text" />
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="ghost-btn" id="btn-reset-theme">恢复默认</button>
+        <button class="action-btn primary" data-close-modal>完成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新建分组弹层 -->
+  <div class="modal-root" id="group-modal" hidden>
+    <div class="modal-mask" data-close-modal></div>
+    <div class="modal-card narrow">
+      <div class="modal-header">
+        <span class="modal-title">新建分组</span>
+        <button class="icon-btn" data-close-modal>&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <label class="stacked">
+          <span>分组名称</span>
+          <input type="text" id="input-group-name" placeholder="例如：跑步训练" maxlength="30" />
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button class="ghost-btn" data-close-modal>取消</button>
+        <button class="action-btn primary" id="btn-confirm-group">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 保存会话弹层 -->
+  <div class="modal-root" id="save-modal" hidden>
+    <div class="modal-mask" data-close-modal></div>
+    <div class="modal-card narrow">
+      <div class="modal-header">
+        <span class="modal-title">保存会话</span>
+        <button class="icon-btn" data-close-modal>&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <label class="stacked">
+          <span>会话名称</span>
+          <input type="text" id="input-session-name" placeholder="留空则使用时间戳" maxlength="40" />
+        </label>
+        <label class="stacked">
+          <span>保存到分组</span>
+          <select id="input-session-group"></select>
+        </label>
+        <div class="summary-row">
+          <div><span>总时长</span><strong id="save-total">00:00:00.000</strong></div>
+          <div><span>计次数</span><strong id="save-laps">0</strong></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="ghost-btn" data-close-modal>取消</button>
+        <button class="action-btn primary" id="btn-confirm-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 详情弹层 -->
+  <div class="modal-root" id="detail-modal" hidden>
+    <div class="modal-mask" data-close-modal></div>
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title" id="detail-title">会话详情</span>
+        <button class="icon-btn" data-close-modal>&#10005;</button>
+      </div>
+      <div class="modal-body" id="detail-body"></div>
+      <div class="modal-footer">
+        <button class="ghost-btn danger" id="btn-delete-session">删除此会话</button>
+        <button class="action-btn primary" data-close-modal>关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
