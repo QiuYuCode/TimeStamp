@@ -106,6 +106,7 @@ function rgbToHex(r, g, b) {
 function bindWindowControls() {
   $('#btn-min').addEventListener('click', () => window.api.minimize());
   $('#btn-max').addEventListener('click', () => window.api.toggleMaximize());
+  $('#btn-fullscreen').addEventListener('click', () => requestToggleFullScreen());
   $('#btn-close').addEventListener('click', () => window.api.close());
   $('#btn-quit').addEventListener('click', async () => {
     if (state.timer.running || state.timer.elapsedBeforeStart > 0) {
@@ -114,6 +115,44 @@ function bindWindowControls() {
     }
     window.api.quit();
   });
+
+  window.api.onWindowState((s) => applyWindowState(s));
+  window.api.getWindowState().then(applyWindowState).catch(() => {});
+}
+
+let fsPending = false;
+function requestExitFullScreen() {
+  if (fsPending) return;
+  if (!document.body.classList.contains('is-fullscreen')) return;
+  fsPending = true;
+  document.body.classList.remove('is-fullscreen');
+  updateFullscreenButton(false);
+  Promise.resolve(window.api.exitFullScreen())
+    .catch(() => {})
+    .finally(() => { setTimeout(() => { fsPending = false; }, 200); });
+}
+function requestToggleFullScreen() {
+  if (fsPending) return;
+  fsPending = true;
+  const next = !document.body.classList.contains('is-fullscreen');
+  document.body.classList.toggle('is-fullscreen', next);
+  updateFullscreenButton(next);
+  Promise.resolve(window.api.toggleFullScreen())
+    .catch(() => {})
+    .finally(() => { setTimeout(() => { fsPending = false; }, 200); });
+}
+
+function updateFullscreenButton(isFull) {
+  const btn = $('#btn-fullscreen');
+  if (!btn) return;
+  btn.title = isFull ? '退出全屏 (F11 / Esc)' : '全屏 (F11)';
+}
+
+function applyWindowState(s) {
+  if (!s) return;
+  document.body.classList.toggle('is-maximized', !!s.maximized);
+  document.body.classList.toggle('is-fullscreen', !!s.fullscreen);
+  updateFullscreenButton(!!s.fullscreen);
 }
 
 // ---------- Timer ----------
@@ -138,6 +177,22 @@ function formatTime(ms) {
     ms: String(milli).padStart(3, '0'),
     str: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(milli).padStart(3, '0')}`
   };
+}
+
+// 第 1 次计次实质是"从开始到首次点击 lap"的初始段，不与后续段对比。
+// 只有当至少有 2 个可对比段（总计 >= 3 次 lap）时才标记最快/最慢。
+function computeBestWorstLap(laps) {
+  if (!laps || laps.length < 3) return { best: -1, worst: -1 };
+  let best = 1, worst = 1;
+  let bestVal = laps[1].splitMs;
+  let worstVal = laps[1].splitMs;
+  for (let i = 2; i < laps.length; i++) {
+    const v = laps[i].splitMs;
+    if (v < bestVal) { bestVal = v; best = i; }
+    if (v > worstVal) { worstVal = v; worst = i; }
+  }
+  if (best === worst) return { best: -1, worst: -1 };
+  return { best, worst };
 }
 
 function startTicker() {
@@ -181,7 +236,7 @@ function toggleStart() {
 }
 
 function recordLap() {
-  if (!state.timer.running && state.timer.elapsedBeforeStart === 0) return;
+  if (!state.timer.running) return;
   const total = currentElapsed();
   const prev = state.timer.laps.length ? state.timer.laps[state.timer.laps.length - 1].totalMs : 0;
   state.timer.laps.push({
@@ -256,14 +311,7 @@ function renderLaps() {
     return;
   }
 
-  let best = -1, worst = -1;
-  if (state.timer.laps.length >= 2) {
-    let bestVal = Infinity, worstVal = -Infinity;
-    state.timer.laps.forEach((lap, i) => {
-      if (lap.splitMs < bestVal) { bestVal = lap.splitMs; best = i; }
-      if (lap.splitMs > worstVal) { worstVal = lap.splitMs; worst = i; }
-    });
-  }
+  const { best, worst } = computeBestWorstLap(state.timer.laps);
 
   const rows = [...state.timer.laps].reverse().map((lap) => {
     const idxFromStart = state.timer.laps.indexOf(lap);
@@ -527,14 +575,7 @@ function openDetailModal(sid) {
   const g = state.data.groups.find((x) => x.id === s.groupId);
   $('#detail-title').textContent = s.name;
 
-  let best = -1, worst = -1;
-  if (s.laps.length >= 2) {
-    let bestVal = Infinity, worstVal = -Infinity;
-    s.laps.forEach((lap, i) => {
-      if (lap.splitMs < bestVal) { bestVal = lap.splitMs; best = i; }
-      if (lap.splitMs > worstVal) { worstVal = lap.splitMs; worst = i; }
-    });
-  }
+  const { best, worst } = computeBestWorstLap(s.laps);
 
   const lapsHtml = s.laps.length
     ? s.laps.map((lap, i) => {
@@ -566,6 +607,11 @@ function openDetailModal(sid) {
 // ---------- Shortcuts ----------
 function bindShortcuts() {
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'F11') { e.preventDefault(); requestToggleFullScreen(); return; }
+    if (e.key === 'Escape' && document.body.classList.contains('is-fullscreen')) {
+      const modalOpen = document.querySelector('.modal-root:not([hidden])');
+      if (!modalOpen) { e.preventDefault(); requestExitFullScreen(); return; }
+    }
     if (isTypingInInput(e.target)) return;
     if (document.querySelector('.modal-root:not([hidden])')) return;
     const k = e.key.toLowerCase();

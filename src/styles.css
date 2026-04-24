@@ -99,6 +99,31 @@ kbd {
 .win-btn:hover { background: var(--surface); color: var(--text); }
 .win-btn-close:hover { background: #c42b1c; color: #fff; }
 
+/* 全屏按钮：两个图标根据状态切换 */
+#btn-fullscreen { display: inline-flex; align-items: center; justify-content: center; }
+#btn-fullscreen .ico-exit { display: none; }
+body.is-fullscreen #btn-fullscreen .ico-enter { display: none; }
+body.is-fullscreen #btn-fullscreen .ico-exit { display: inline; color: var(--accent); }
+body.is-fullscreen #btn-fullscreen { color: var(--accent); }
+
+/* 全屏下最大化按钮失去意义 */
+body.is-fullscreen #btn-max { display: none; }
+
+/* 全屏模式：标题栏悬浮在内容之上，半透明，hover 变实；不隐藏，保证任何时候都能点 ⛶ / 关闭 */
+body.is-fullscreen .titlebar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.55);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.18);
+  backdrop-filter: blur(10px);
+  opacity: .35;
+  transition: opacity .2s;
+}
+body.is-fullscreen .titlebar:hover,
+body.is-fullscreen .titlebar:focus-within { opacity: 1; }
+body.is-fullscreen .app { padding: 18px; padding-top: 54px; }
+
 /* ---------- Layout ---------- */
 .app {
   flex: 1;

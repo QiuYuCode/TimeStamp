@@ -67,6 +67,19 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
   mainWindow.setMenu(null);
+
+  const emitState = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('window:state', {
+      maximized: mainWindow.isMaximized(),
+      fullscreen: mainWindow.isFullScreen()
+    });
+  };
+  mainWindow.on('maximize', emitState);
+  mainWindow.on('unmaximize', emitState);
+  mainWindow.on('enter-full-screen', emitState);
+  mainWindow.on('leave-full-screen', emitState);
+  mainWindow.webContents.on('did-finish-load', emitState);
 }
 
 app.whenReady().then(() => {
@@ -91,8 +104,22 @@ ipcMain.handle('data:save', (_evt, data) => writeData(data));
 ipcMain.handle('window:minimize', () => mainWindow?.minimize());
 ipcMain.handle('window:toggleMax', () => {
   if (!mainWindow) return;
+  if (mainWindow.isFullScreen()) { mainWindow.setFullScreen(false); return; }
   if (mainWindow.isMaximized()) mainWindow.unmaximize();
   else mainWindow.maximize();
 });
+ipcMain.handle('window:toggleFullScreen', () => {
+  if (!mainWindow) return false;
+  const next = !mainWindow.isFullScreen();
+  mainWindow.setFullScreen(next);
+  return next;
+});
+ipcMain.handle('window:exitFullScreen', () => {
+  if (mainWindow?.isFullScreen()) mainWindow.setFullScreen(false);
+});
+ipcMain.handle('window:state', () => ({
+  maximized: !!mainWindow?.isMaximized(),
+  fullscreen: !!mainWindow?.isFullScreen()
+}));
 ipcMain.handle('window:close', () => mainWindow?.close());
 ipcMain.handle('app:quit', () => app.quit());
