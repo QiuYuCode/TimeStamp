@@ -40,6 +40,10 @@ npm run dist
 
 会话与设置保存为单个 JSON 文件：
 
+- 安装版（给其他人分发）：`TimeStamp` 目录
+- 开发版（`npm start` 本机调试）：`TimeStamp-Dev` 目录
+
+示例（安装版）：
 - Windows: `%APPDATA%/TimeStamp/timestamp-data.json`
 - macOS:  `~/Library/Application Support/TimeStamp/timestamp-data.json`
 - Linux:  `~/.config/TimeStamp/timestamp-data.json`

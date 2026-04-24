@@ -2,6 +2,9 @@ const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+const USER_DATA_DIR_NAME = app.isPackaged ? 'TimeStamp' : 'TimeStamp-Dev';
+app.setPath('userData', path.join(app.getPath('appData'), USER_DATA_DIR_NAME));
+
 const DATA_FILE = () => path.join(app.getPath('userData'), 'timestamp-data.json');
 
 function readData() {
@@ -50,8 +53,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1180,
     height: 760,
-    minWidth: 900,
-    minHeight: 620,
+    minWidth: 760,
+    minHeight: 560,
     backgroundColor: '#0a0a0a',
     title: 'TimeStamp',
     frame: false,

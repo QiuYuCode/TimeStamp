@@ -28,6 +28,7 @@ const $$ = (sel) => document.querySelectorAll(sel);
 
 // ---------- Init ----------
 async function init() {
+  bindSystemDialog();
   state.data = await window.api.loadData();
   ensureDefaults();
   applyTheme(state.data.settings);
@@ -110,7 +111,11 @@ function bindWindowControls() {
   $('#btn-close').addEventListener('click', () => window.api.close());
   $('#btn-quit').addEventListener('click', async () => {
     if (state.timer.running || state.timer.elapsedBeforeStart > 0) {
-      const ok = confirm('当前有未保存的计时数据，确定要退出吗？');
+      const ok = await showConfirmDialog({
+        title: '退出确认',
+        message: '当前有未保存的计时数据，确定要退出吗？',
+        confirmText: '退出'
+      });
       if (!ok) return;
     }
     window.api.quit();
@@ -261,13 +266,18 @@ function recordLap() {
   renderLaps();
 }
 
-function resetTimer() {
+async function resetTimer() {
   if (state.timer.running) {
     state.timer.elapsedBeforeStart += performance.now() - state.timer.startedAt;
     state.timer.running = false;
   }
   if (state.timer.elapsedBeforeStart > 0 || state.timer.laps.length > 0) {
-    const ok = confirm('确定要复位吗？未保存的计时数据将被丢弃。\n\n建议先点"保存"将本次计时存入历史。');
+    const ok = await showConfirmDialog({
+      title: '复位确认',
+      message: '确定要复位吗？未保存的计时数据将被丢弃。\n\n建议先点"保存"将本次计时存入历史。',
+      confirmText: '复位',
+      danger: true
+    });
     if (!ok) {
       renderTimerState();
       return;
@@ -387,7 +397,13 @@ async function deleteGroup(id) {
   const msg = count > 0
     ? `删除分组「${g.name}」将同时删除其下 ${count} 条历史记录，确定继续？`
     : `确定删除分组「${g.name}」？`;
-  if (!confirm(msg)) return;
+  const ok = await showConfirmDialog({
+    title: '删除分组',
+    message: msg,
+    confirmText: '删除',
+    danger: true
+  });
+  if (!ok) return;
   state.data.groups = state.data.groups.filter((x) => x.id !== id);
   state.data.sessions = state.data.sessions.filter((s) => s.groupId !== id);
   if (state.currentGroupId === id) state.currentGroupId = state.data.groups[0]?.id || 'default';
@@ -562,9 +578,21 @@ let currentDetailId = null;
 
 function bindDetailModal() {
   $$('#detail-modal [data-close-modal]').forEach((el) => el.addEventListener('click', () => closeModal('#detail-modal')));
+  $('#btn-restore-session').addEventListener('click', async () => {
+    if (!currentDetailId) return;
+    const s = state.data.sessions.find((x) => x.id === currentDetailId);
+    if (!s) return;
+    await restoreSessionToCurrent(s);
+  });
   $('#btn-delete-session').addEventListener('click', async () => {
     if (!currentDetailId) return;
-    if (!confirm('确定要删除这条记录吗？')) return;
+    const ok = await showConfirmDialog({
+      title: '删除记录',
+      message: '确定要删除这条记录吗？',
+      confirmText: '删除',
+      danger: true
+    });
+    if (!ok) return;
     state.data.sessions = state.data.sessions.filter((s) => s.id !== currentDetailId);
     await persist();
     closeModal('#detail-modal');
@@ -605,6 +633,41 @@ function openDetailModal(sid) {
   $('#detail-modal').hidden = false;
 }
 
+async function restoreSessionToCurrent(session) {
+  const hasCurrent =
+    state.timer.running ||
+    state.timer.elapsedBeforeStart > 0 ||
+    state.timer.laps.length > 0;
+  if (hasCurrent) {
+    const ok = await showConfirmDialog({
+      title: '恢复会话',
+      message: '恢复会话会覆盖当前未保存的计时数据，是否继续？',
+      confirmText: '恢复'
+    });
+    if (!ok) return;
+  }
+
+  state.timer.running = false;
+  state.timer.startedAt = 0;
+  state.timer.elapsedBeforeStart = Number(session.totalMs) || 0;
+  state.timer.laps = Array.isArray(session.laps)
+    ? session.laps.map((lap, i) => ({
+        index: Number(lap.index) || i + 1,
+        totalMs: Number(lap.totalMs) || 0,
+        splitMs: Number(lap.splitMs) || 0,
+        at: Number(lap.at) || Date.now()
+      }))
+    : [];
+
+  if (session.groupId && state.data.groups.some((g) => g.id === session.groupId)) {
+    state.currentGroupId = session.groupId;
+  }
+
+  closeModal('#detail-modal');
+  renderAll();
+  toast('已恢复会话，可继续计时或重新保存');
+}
+
 // ---------- Shortcuts ----------
 function bindShortcuts() {
   document.addEventListener('keydown', (e) => {
@@ -627,6 +690,99 @@ function isTypingInInput(el) {
   if (!el) return false;
   const tag = el.tagName?.toLowerCase();
   return tag === 'input' || tag === 'textarea' || tag === 'select';
+}
+
+// ---------- System dialog ----------
+const systemDialogState = {
+  resolver: null,
+  canCancel: true
+};
+
+function bindSystemDialog() {
+  const modal = $('#system-dialog-modal');
+  const mask = $('#system-dialog-mask');
+  const btnClose = $('#btn-system-dialog-close');
+  const btnCancel = $('#btn-system-dialog-cancel');
+  const btnConfirm = $('#btn-system-dialog-confirm');
+  if (!modal || !mask || !btnClose || !btnCancel || !btnConfirm) return;
+
+  const cancelDialog = () => resolveSystemDialog(false);
+  const confirmDialog = () => resolveSystemDialog(true);
+
+  mask.addEventListener('click', () => {
+    if (systemDialogState.canCancel) cancelDialog();
+  });
+  btnClose.addEventListener('click', cancelDialog);
+  btnCancel.addEventListener('click', cancelDialog);
+  btnConfirm.addEventListener('click', confirmDialog);
+
+  document.addEventListener('keydown', (e) => {
+    if (modal.hidden) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      confirmDialog();
+      return;
+    }
+    if (e.key === 'Escape' && systemDialogState.canCancel) {
+      e.preventDefault();
+      cancelDialog();
+    }
+  });
+}
+
+function showConfirmDialog({ title = '确认', message = '', confirmText = '确定', cancelText = '取消', danger = false } = {}) {
+  return openSystemDialog({
+    title,
+    message,
+    confirmText,
+    cancelText,
+    showCancel: true,
+    danger
+  });
+}
+
+function showAlertDialog({ title = '提示', message = '', confirmText = '我知道了' } = {}) {
+  return openSystemDialog({
+    title,
+    message,
+    confirmText,
+    showCancel: false,
+    danger: false
+  });
+}
+
+function openSystemDialog({ title, message, confirmText, cancelText = '取消', showCancel = true, danger = false }) {
+  resolveSystemDialog(false);
+  systemDialogState.canCancel = showCancel;
+
+  $('#system-dialog-title').textContent = title;
+  $('#system-dialog-message').textContent = message;
+
+  const btnClose = $('#btn-system-dialog-close');
+  const btnCancel = $('#btn-system-dialog-cancel');
+  const btnConfirm = $('#btn-system-dialog-confirm');
+
+  btnConfirm.textContent = confirmText || '确定';
+  btnConfirm.classList.toggle('danger', !!danger);
+
+  btnCancel.hidden = !showCancel;
+  btnClose.hidden = !showCancel;
+  btnCancel.textContent = cancelText || '取消';
+
+  $('#system-dialog-modal').hidden = false;
+
+  return new Promise((resolve) => {
+    systemDialogState.resolver = resolve;
+    setTimeout(() => btnConfirm.focus(), 20);
+  });
+}
+
+function resolveSystemDialog(result) {
+  if (!systemDialogState.resolver) return;
+  const resolve = systemDialogState.resolver;
+  systemDialogState.resolver = null;
+  $('#system-dialog-modal').hidden = true;
+  resolve(!!result);
 }
 
 // ---------- Modal helpers ----------
@@ -665,5 +821,9 @@ function renderAll() {
 // ---------- Boot ----------
 init().catch((err) => {
   console.error(err);
-  alert('初始化失败：' + err.message);
+  showAlertDialog({
+    title: '初始化失败',
+    message: '初始化失败：' + err.message,
+    confirmText: '我知道了'
+  });
 });

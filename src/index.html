@@ -205,8 +205,27 @@
       </div>
       <div class="modal-body" id="detail-body"></div>
       <div class="modal-footer">
+        <button class="ghost-btn" id="btn-restore-session">恢复到当前计时</button>
         <button class="ghost-btn danger" id="btn-delete-session">删除此会话</button>
         <button class="action-btn primary" data-close-modal>关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 统一系统对话框（替代原生 confirm/alert） -->
+  <div class="modal-root" id="system-dialog-modal" hidden>
+    <div class="modal-mask" id="system-dialog-mask"></div>
+    <div class="modal-card narrow system-dialog-card" role="dialog" aria-modal="true" aria-labelledby="system-dialog-title">
+      <div class="modal-header">
+        <span class="modal-title" id="system-dialog-title">提示</span>
+        <button class="icon-btn" id="btn-system-dialog-close" title="关闭">&#10005;</button>
+      </div>
+      <div class="modal-body">
+        <p class="system-dialog-message" id="system-dialog-message"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="ghost-btn" id="btn-system-dialog-cancel">取消</button>
+        <button class="action-btn primary" id="btn-system-dialog-confirm">确定</button>
       </div>
     </div>
   </div>
