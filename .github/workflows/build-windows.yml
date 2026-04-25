@@ -4,9 +4,15 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
@@ -33,6 +39,24 @@ jobs:
         with:
           name: TimeStamp-Windows-Installer
           path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/latest.yml
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: TimeStamp ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            ## 更新内容
+            - 自动构建 Windows 安装包。
+            - 完整变更会附加在下方自动生成的发布说明中。
+
+            ## 修复项
+            - 修复项会从本版本提交记录中自动汇总。
+          files: |
             dist/*.exe
             dist/*.blockmap
             dist/latest.yml
