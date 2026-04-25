@@ -5,10 +5,24 @@ const PRESETS = {
   'midnight':   { accentColor: '#7c9cff', bgColor: '#0b1020', surfaceColor: '#141a30', textColor: '#eef2ff' },
   'forest':     { accentColor: '#38d39f', bgColor: '#0b1a12', surfaceColor: '#142319', textColor: '#e8fff3' },
   'rose':       { accentColor: '#ff6b9d', bgColor: '#1a0b12', surfaceColor: '#241420', textColor: '#ffeef4' },
-  'ivory':      { accentColor: '#b8860b', bgColor: '#f7f5ef', surfaceColor: '#ffffff', textColor: '#1a1a1a' }
+  'ivory':      { accentColor: '#b8860b', bgColor: '#f7f5ef', surfaceColor: '#ffffff', textColor: '#1a1a1a' },
+  'black-white': { accentColor: '#ffffff', bgColor: '#000000', surfaceColor: '#101010', textColor: '#ffffff' }
 };
 
-const DEFAULT_SETTINGS = { ...PRESETS['black-gold'], theme: 'black-gold', displayRefreshHz: 30 };
+const DEFAULT_SETTINGS = { ...PRESETS['black-gold'], theme: 'black-gold', displayRefreshHz: 30, digitStyle: 'seven-segment' };
+const DIGIT_STYLES = ['seven-segment', 'classic'];
+const SEVEN_SEGMENTS = {
+  '0': ['a', 'b', 'c', 'd', 'e', 'f'],
+  '1': ['b', 'c'],
+  '2': ['a', 'b', 'g', 'e', 'd'],
+  '3': ['a', 'b', 'g', 'c', 'd'],
+  '4': ['f', 'g', 'b', 'c'],
+  '5': ['a', 'f', 'g', 'c', 'd'],
+  '6': ['a', 'f', 'g', 'e', 'c', 'd'],
+  '7': ['a', 'b', 'c'],
+  '8': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+  '9': ['a', 'b', 'c', 'd', 'f', 'g']
+};
 
 const state = {
   data: null,
@@ -21,7 +35,10 @@ const state = {
     lastDisplayPaintAt: 0,
     laps: []
   },
-  pendingSaveBeforeReset: false
+  pendingSaveBeforeReset: false,
+  ui: {
+    historyCollapsed: true
+  }
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -48,6 +65,7 @@ async function init() {
 function ensureDefaults() {
   state.data.settings = { ...DEFAULT_SETTINGS, ...(state.data.settings || {}) };
   state.data.settings.displayRefreshHz = normalizeRefreshHz(state.data.settings.displayRefreshHz);
+  state.data.settings.digitStyle = normalizeDigitStyle(state.data.settings.digitStyle);
   if (!state.data.groups?.length) {
     state.data.groups = [{ id: 'default', name: '默认分组', createdAt: Date.now() }];
   }
@@ -73,6 +91,14 @@ function applyTheme(settings) {
   document.documentElement.style.setProperty('--accent', s.accentColor);
   document.documentElement.style.setProperty('--accent-soft', hexWithAlpha(s.accentColor, 0.15));
   document.documentElement.style.setProperty('--accent-glow', hexWithAlpha(s.accentColor, 0.35));
+  document.body.classList.toggle('theme-black-white', s.theme === 'black-white');
+  applyDigitStyle(s.digitStyle);
+}
+
+function applyDigitStyle(style) {
+  const normalized = normalizeDigitStyle(style);
+  document.body.classList.toggle('digit-style-seven-segment', normalized === 'seven-segment');
+  document.body.classList.toggle('digit-style-classic', normalized === 'classic');
 }
 
 function shade(hex, percent) {
@@ -185,6 +211,7 @@ function applyWindowState(s) {
   if (!s) return;
   document.body.classList.toggle('is-maximized', !!s.maximized);
   document.body.classList.toggle('is-fullscreen', !!s.fullscreen);
+  document.body.classList.toggle('is-immersive', !!s.fullscreen || !!s.maximized);
   if (!s.fullscreen) {
     document.body.classList.remove('show-fs-titlebar');
   }
@@ -236,18 +263,40 @@ function normalizeRefreshHz(value) {
   return allowed.includes(n) ? n : 30;
 }
 
+function normalizeDigitStyle(value) {
+  return DIGIT_STYLES.includes(value) ? value : DEFAULT_SETTINGS.digitStyle;
+}
+
 function renderTimerDisplay(force = false) {
   if (force) {
     state.timer.lastDisplayPaintAt = 0;
   }
   const t = formatTime(currentElapsed());
   const d = $('#timer-display');
-  d.querySelector('.t-hh').textContent = t.hh;
+  const useSevenSegment = normalizeDigitStyle(state.data.settings.digitStyle) === 'seven-segment';
+  d.setAttribute('aria-label', t.str);
+  d.querySelector('.t-hh').innerHTML = formatDisplayPart(t.hh, useSevenSegment);
   d.querySelectorAll('.t-sep')[0].textContent = ':';
-  d.querySelector('.t-mm').textContent = t.mm;
+  d.querySelector('.t-mm').innerHTML = formatDisplayPart(t.mm, useSevenSegment);
   d.querySelectorAll('.t-sep')[1].textContent = ':';
-  d.querySelector('.t-ss').textContent = t.ss;
-  d.querySelector('.t-ms').textContent = '.' + t.ms;
+  d.querySelector('.t-ss').innerHTML = formatDisplayPart(t.ss, useSevenSegment);
+  d.querySelector('.t-ms').innerHTML = useSevenSegment
+    ? '<span class="t-dot">.</span>' + formatDisplayPart(t.ms, true)
+    : '.' + t.ms;
+}
+
+function formatDisplayPart(value, useSevenSegment) {
+  if (!useSevenSegment) return value;
+  return String(value).split('').map(renderSevenSegmentDigit).join('');
+}
+
+function renderSevenSegmentDigit(value) {
+  const active = SEVEN_SEGMENTS[value] || [];
+  const segments = ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((segment) => {
+    const on = active.includes(segment) ? ' is-on' : '';
+    return `<span class="seg seg-${segment}${on}"></span>`;
+  }).join('');
+  return `<span class="seven-digit" aria-hidden="true">${segments}</span>`;
 }
 
 function bindTimerControls() {
@@ -320,24 +369,44 @@ function renderTimerState() {
   const hasData = state.timer.elapsedBeforeStart > 0 || state.timer.laps.length > 0 || state.timer.running;
 
   if (state.timer.running) {
-    startBtn.textContent = '暂停';
+    setActionButton(startBtn, '暂停', 'pause');
     startBtn.classList.add('running');
     stateEl.classList.add('running');
     stateEl.textContent = '计时中';
   } else if (state.timer.elapsedBeforeStart > 0) {
-    startBtn.textContent = '继续';
+    setActionButton(startBtn, '继续', 'play');
     startBtn.classList.remove('running');
     stateEl.classList.add('paused');
     stateEl.textContent = '已暂停';
   } else {
-    startBtn.textContent = '开始';
+    setActionButton(startBtn, '开始', 'play');
     startBtn.classList.remove('running');
     stateEl.textContent = '就绪';
   }
 
+  setActionButton(lapBtn, '计次', 'flag');
+  setActionButton(resetBtn, '复位', 'reset');
+  setActionButton(saveBtn, '保存', 'save');
   lapBtn.disabled = !state.timer.running;
   resetBtn.disabled = !hasData;
   saveBtn.disabled = state.timer.running || state.timer.elapsedBeforeStart === 0;
+}
+
+function setActionButton(button, label, icon) {
+  button.title = label;
+  button.setAttribute('aria-label', label);
+  button.innerHTML = `${actionIcon(icon)}<span class="action-label">${label}</span>`;
+}
+
+function actionIcon(icon) {
+  const icons = {
+    play: '<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>',
+    pause: '<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7z"/><path d="M13 5h4v14h-4z"/></svg>',
+    flag: '<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v16"/><path d="M7 5h10l-2 4 2 4H7"/></svg>',
+    reset: '<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7v5h5"/><path d="M19 12a7 7 0 1 1-2.05-4.95L19 9"/></svg>',
+    save: '<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h12l2 2v14H5z"/><path d="M8 4v6h8V4"/><path d="M8 16h8"/></svg>'
+  };
+  return icons[icon] || icons.play;
 }
 
 // ---------- Laps ----------
@@ -360,12 +429,33 @@ function renderLaps() {
       </div>
     `;
   }).join('');
-  list.innerHTML = rows;
+  list.innerHTML = `
+    <div class="lap-header">
+      <span>次数</span>
+      <span>单次时间</span>
+      <span>总时间</span>
+    </div>
+    ${rows}
+  `;
 }
 
 // ---------- Sidebar / Groups ----------
 function bindSidebar() {
   $('#btn-add-group').addEventListener('click', () => openGroupModal());
+  $('#btn-toggle-history').addEventListener('click', () => {
+    state.ui.historyCollapsed = !state.ui.historyCollapsed;
+    applyHistoryCollapsed();
+  });
+  applyHistoryCollapsed();
+}
+
+function applyHistoryCollapsed() {
+  const sidebar = $('.sidebar');
+  const btn = $('#btn-toggle-history');
+  if (!sidebar || !btn) return;
+  sidebar.classList.toggle('history-collapsed', state.ui.historyCollapsed);
+  btn.setAttribute('aria-expanded', state.ui.historyCollapsed ? 'false' : 'true');
+  btn.title = state.ui.historyCollapsed ? '展开历史记录' : '折叠历史记录';
 }
 
 function renderGroups() {
@@ -504,6 +594,13 @@ function bindSettingsModal() {
     await persist();
     toast(`已切换刷新率：${state.data.settings.displayRefreshHz}Hz`);
   });
+  $('#input-digit-style').addEventListener('change', async (e) => {
+    state.data.settings.digitStyle = normalizeDigitStyle(e.target.value);
+    applyDigitStyle(state.data.settings.digitStyle);
+    renderTimerDisplay(true);
+    await persist();
+    toast(state.data.settings.digitStyle === 'seven-segment' ? '已切换为数码管数字' : '已切换为经典等宽数字');
+  });
 
   $('#btn-reset-theme').addEventListener('click', () => {
     state.data.settings = { ...DEFAULT_SETTINGS };
@@ -525,6 +622,7 @@ function syncColorInputs() {
   $('#input-surface').value = state.data.settings.surfaceColor;
   $('#input-text').value = state.data.settings.textColor;
   $('#input-refresh-rate').value = String(normalizeRefreshHz(state.data.settings.displayRefreshHz));
+  $('#input-digit-style').value = normalizeDigitStyle(state.data.settings.digitStyle);
 }
 
 // ---------- Group modal ----------

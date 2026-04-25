@@ -27,7 +27,7 @@
   </header>
 
   <main class="app">
-    <!-- 侧边栏：分组 + 设置 -->
+    <!-- 侧边栏：分组 + 历史（可折叠） + 设置 -->
     <aside class="sidebar">
       <div class="sidebar-section">
         <div class="sidebar-header">
@@ -35,6 +35,26 @@
           <button class="icon-btn" id="btn-add-group" title="新建分组">+</button>
         </div>
         <ul class="group-list" id="group-list"></ul>
+      </div>
+
+      <div class="sidebar-section history-side-section">
+        <div class="sidebar-header">
+          <span class="sidebar-title">历史记录</span>
+          <button class="icon-btn collapse-btn" id="btn-toggle-history" title="折叠/展开历史记录" aria-expanded="false">
+            <span id="history-collapse-icon">&#9662;</span>
+          </button>
+        </div>
+        <div class="history-side-content" id="history-side-content">
+          <div class="history-tools">
+            <select id="history-filter" class="mini-select">
+              <option value="__current__">当前分组</option>
+              <option value="__all__">全部分组</option>
+            </select>
+          </div>
+          <div class="history-list" id="history-list">
+            <div class="empty-hint">暂无历史记录</div>
+          </div>
+        </div>
       </div>
 
       <div class="sidebar-footer">
@@ -73,31 +93,16 @@
         </div>
       </div>
 
-      <!-- 当前计次列表 -->
-      <div class="laps-panel">
-        <div class="panel-header">
-          <span class="panel-title">当前计次</span>
-          <span class="panel-count" id="laps-count">0</span>
-        </div>
-        <div class="laps-list" id="laps-list">
-          <div class="empty-hint">点击"计次"或按 <kbd>S</kbd> 记录分段时间</div>
-        </div>
-      </div>
     </section>
 
-    <!-- 右侧：历史记录 -->
-    <aside class="history-panel">
+    <!-- 右侧：当前计次 -->
+    <aside class="laps-panel laps-side-panel">
       <div class="panel-header">
-        <span class="panel-title">历史记录</span>
-        <div class="history-tools">
-          <select id="history-filter" class="mini-select">
-            <option value="__current__">当前分组</option>
-            <option value="__all__">全部分组</option>
-          </select>
-        </div>
+        <span class="panel-title">当前计次</span>
+        <span class="panel-count" id="laps-count">0</span>
       </div>
-      <div class="history-list" id="history-list">
-        <div class="empty-hint">暂无历史记录</div>
+      <div class="laps-list" id="laps-list">
+        <div class="empty-hint">点击"计次"或按 <kbd>S</kbd> 记录分段时间</div>
       </div>
     </aside>
   </main>
@@ -117,6 +122,7 @@
           <button class="preset" data-preset="forest" style="--p-bg:#0b1a12;--p-accent:#38d39f;">森林绿</button>
           <button class="preset" data-preset="rose" style="--p-bg:#1a0b12;--p-accent:#ff6b9d;">玫瑰粉</button>
           <button class="preset" data-preset="ivory" style="--p-bg:#f7f5ef;--p-accent:#b8860b;">象牙白</button>
+          <button class="preset" data-preset="black-white" style="--p-bg:#000000;--p-accent:#ffffff;">黑白</button>
         </div>
 
         <div class="form-grid">
@@ -143,6 +149,13 @@
               <option value="30">30 Hz（推荐）</option>
               <option value="20">20 Hz（更稳）</option>
               <option value="10">10 Hz（最省眼）</option>
+            </select>
+          </label>
+          <label class="span-2">
+            <span>数字风格</span>
+            <select id="input-digit-style">
+              <option value="seven-segment">数码管数字（默认）</option>
+              <option value="classic">经典等宽数字</option>
             </select>
           </label>
         </div>
