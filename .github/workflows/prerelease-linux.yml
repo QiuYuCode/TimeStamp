@@ -1,0 +1,80 @@
+name: Build Linux Prerelease
+
+on:
+  push:
+    branches:
+      - prerelease
+    tags:
+      - "pre-*"
+      - "test-*"
+      - "prerelease-*"
+      - "v*-alpha*"
+      - "v*-beta*"
+      - "v*-rc*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: linux-prerelease-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux-prerelease:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Linux prerelease packages
+        run: npm run dist:linux -- --publish never
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd dist
+          sha256sum *.AppImage *.tar.xz > SHA256SUMS.txt
+
+      - name: Upload prerelease artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: TimeStamp-Linux-Prerelease
+          path: |
+            dist/*.AppImage
+            dist/*.tar.xz
+            dist/SHA256SUMS.txt
+            dist/latest-linux.yml
+
+      - name: Create GitHub prerelease
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: TimeStamp Prerelease ${{ github.ref_name }}
+          prerelease: true
+          generate_release_notes: true
+          body: |
+            ## 预发布说明
+            - 这是自动构建的 Linux 预发布/测试版本。
+            - 产物仅用于验证，不代表稳定发布。
+
+            ## 包含产物
+            - AppImage
+            - tar.xz
+            - SHA256SUMS.txt
+          files: |
+            dist/*.AppImage
+            dist/*.tar.xz
+            dist/SHA256SUMS.txt

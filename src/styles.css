@@ -166,6 +166,46 @@ body.is-fullscreen .timer-actions .action-icon {
   height: 24px;
 }
 
+body.mode-transitioning .app,
+body.mode-transitioning .timer-panel,
+body.mode-transitioning .timer-display,
+body.mode-transitioning .timer-actions .action-btn,
+body.mode-transitioning .laps-panel {
+  transition:
+    grid-template-columns .32s cubic-bezier(.2, .8, .2, 1),
+    padding .32s cubic-bezier(.2, .8, .2, 1),
+    gap .32s cubic-bezier(.2, .8, .2, 1),
+    font-size .32s cubic-bezier(.2, .8, .2, 1),
+    width .32s cubic-bezier(.2, .8, .2, 1),
+    height .32s cubic-bezier(.2, .8, .2, 1),
+    transform .32s cubic-bezier(.2, .8, .2, 1),
+    opacity .24s ease;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: .32s;
+  animation-timing-function: cubic-bezier(.2, .8, .2, 1);
+}
+
+::view-transition-old(root) {
+  animation-name: mode-out;
+}
+
+::view-transition-new(root) {
+  animation-name: mode-in;
+}
+
+@keyframes mode-out {
+  from { opacity: 1; transform: scale(1); filter: blur(0); }
+  to { opacity: .55; transform: scale(.985); filter: blur(2px); }
+}
+
+@keyframes mode-in {
+  from { opacity: .55; transform: scale(1.015); filter: blur(2px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
 /* ---------- Layout ---------- */
 .app {
   flex: 1;
@@ -1032,6 +1072,19 @@ select:focus { border-color: var(--accent); }
   .laps-side-panel {
     min-height: 220px;
     max-height: 300px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.mode-transitioning .app,
+  body.mode-transitioning .timer-panel,
+  body.mode-transitioning .timer-display,
+  body.mode-transitioning .timer-actions .action-btn,
+  body.mode-transitioning .laps-panel,
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 1ms;
+    transition-duration: 1ms;
   }
 }
 @media (max-width: 920px) {

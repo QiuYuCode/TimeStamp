@@ -178,35 +178,82 @@ function bindFullscreenEdgeReveal() {
 }
 
 let fsPending = false;
+let windowStateReady = false;
 function requestExitFullScreen() {
   if (fsPending) return;
   if (!document.body.classList.contains('is-fullscreen')) return;
   fsPending = true;
-  setFullscreenUi(false);
+  setFullscreenUi(false, { animate: true });
   Promise.resolve(window.api.exitFullScreen())
     .then(() => window.api.getWindowState())
     .then(applyWindowState)
     .catch(() => {})
-    .finally(() => { setTimeout(() => { fsPending = false; }, 200); });
+    .finally(() => { setTimeout(() => { fsPending = false; }, 360); });
 }
 function requestToggleFullScreen() {
   if (fsPending) return;
   fsPending = true;
   const next = !document.body.classList.contains('is-fullscreen');
-  setFullscreenUi(next);
+  setFullscreenUi(next, { animate: true });
   Promise.resolve(window.api.toggleFullScreen())
-    .then((isFull) => setFullscreenUi(!!isFull))
+    .then((isFull) => setFullscreenUi(!!isFull, { animate: false }))
     .then(() => window.api.getWindowState())
     .then(applyWindowState)
     .catch(() => {})
-    .finally(() => { setTimeout(() => { fsPending = false; }, 200); });
+    .finally(() => { setTimeout(() => { fsPending = false; }, 360); });
 }
 
-function setFullscreenUi(isFull) {
+function setFullscreenUi(isFull, options = {}) {
+  applyWindowShellState({
+    fullscreen: !!isFull,
+    maximized: document.body.classList.contains('is-maximized')
+  }, options);
+}
+
+function applyWindowShellState(s, { animate = true } = {}) {
+  const nextFullscreen = !!s.fullscreen;
+  const nextMaximized = !!s.maximized;
+  const prevFullscreen = document.body.classList.contains('is-fullscreen');
+  const prevImmersive = document.body.classList.contains('is-immersive');
+  const nextImmersive = nextFullscreen || nextMaximized;
+
+  if (animate && windowStateReady && (prevFullscreen !== nextFullscreen || prevImmersive !== nextImmersive)) {
+    runWindowModeTransition(nextFullscreen ? 'fullscreen' : 'windowed', () => {
+      applyWindowShellClasses(nextFullscreen, nextMaximized);
+    });
+  } else {
+    applyWindowShellClasses(nextFullscreen, nextMaximized);
+  }
+}
+
+function applyWindowShellClasses(isFull, isMaximized) {
   document.body.classList.toggle('is-fullscreen', !!isFull);
   document.body.classList.toggle('show-fs-titlebar', false);
-  document.body.classList.toggle('is-immersive', !!isFull || document.body.classList.contains('is-maximized'));
+  document.body.classList.toggle('is-maximized', !!isMaximized);
+  document.body.classList.toggle('is-immersive', !!isFull || !!isMaximized);
   updateFullscreenButton(!!isFull);
+}
+
+function runWindowModeTransition(targetMode, mutate) {
+  document.body.classList.remove('mode-transition-to-fullscreen', 'mode-transition-to-windowed');
+  document.body.classList.add('mode-transitioning', `mode-transition-to-${targetMode}`);
+
+  const finish = () => {
+    setTimeout(() => {
+      document.body.classList.remove('mode-transitioning', 'mode-transition-to-fullscreen', 'mode-transition-to-windowed');
+    }, 340);
+  };
+
+  if (document.startViewTransition) {
+    const transition = document.startViewTransition(mutate);
+    transition.finished.finally(finish);
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    mutate();
+    finish();
+  });
 }
 
 function updateFullscreenButton(isFull) {
@@ -217,13 +264,12 @@ function updateFullscreenButton(isFull) {
 
 function applyWindowState(s) {
   if (!s) return;
-  document.body.classList.toggle('is-maximized', !!s.maximized);
-  document.body.classList.toggle('is-fullscreen', !!s.fullscreen);
-  document.body.classList.toggle('is-immersive', !!s.fullscreen || !!s.maximized);
+  applyWindowShellState(s, { animate: windowStateReady });
   if (!s.fullscreen) {
     document.body.classList.remove('show-fs-titlebar');
   }
   updateFullscreenButton(!!s.fullscreen);
+  windowStateReady = true;
 }
 
 // ---------- Timer ----------

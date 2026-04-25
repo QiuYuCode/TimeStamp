@@ -2,6 +2,10 @@ const { app, BrowserWindow, ipcMain, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+if (process.platform === 'linux') {
+  app.disableHardwareAcceleration();
+}
+
 const USER_DATA_DIR_NAME = app.isPackaged ? 'TimeStamp' : 'TimeStamp-Dev';
 app.setPath('userData', path.join(app.getPath('appData'), USER_DATA_DIR_NAME));
 
@@ -57,6 +61,8 @@ function createWindow() {
     minWidth: 760,
     minHeight: 560,
     backgroundColor: '#0a0a0a',
+    show: false,
+    paintWhenInitiallyHidden: true,
     title: 'TimeStamp',
     frame: false,
     titleBarStyle: 'hidden',
@@ -67,6 +73,11 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false
     }
+  });
+
+  mainWindow.once('ready-to-show', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.show();
   });
 
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));

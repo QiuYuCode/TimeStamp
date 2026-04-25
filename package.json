@@ -7,7 +7,8 @@
     "start": "electron .",
     "dev": "electron . --enable-logging",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "dist:linux": "electron-builder --linux AppImage tar.xz"
   },
   "keywords": [
     "stopwatch",
@@ -42,6 +43,13 @@
           ]
         }
       ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "tar.xz"
+      ],
+      "category": "Utility"
     },
     "nsis": {
       "oneClick": false,
