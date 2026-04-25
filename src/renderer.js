@@ -182,10 +182,10 @@ function requestExitFullScreen() {
   if (fsPending) return;
   if (!document.body.classList.contains('is-fullscreen')) return;
   fsPending = true;
-  document.body.classList.remove('is-fullscreen');
-  document.body.classList.remove('show-fs-titlebar');
-  updateFullscreenButton(false);
+  setFullscreenUi(false);
   Promise.resolve(window.api.exitFullScreen())
+    .then(() => window.api.getWindowState())
+    .then(applyWindowState)
     .catch(() => {})
     .finally(() => { setTimeout(() => { fsPending = false; }, 200); });
 }
@@ -193,12 +193,20 @@ function requestToggleFullScreen() {
   if (fsPending) return;
   fsPending = true;
   const next = !document.body.classList.contains('is-fullscreen');
-  document.body.classList.toggle('is-fullscreen', next);
-  document.body.classList.toggle('show-fs-titlebar', false);
-  updateFullscreenButton(next);
+  setFullscreenUi(next);
   Promise.resolve(window.api.toggleFullScreen())
+    .then((isFull) => setFullscreenUi(!!isFull))
+    .then(() => window.api.getWindowState())
+    .then(applyWindowState)
     .catch(() => {})
     .finally(() => { setTimeout(() => { fsPending = false; }, 200); });
+}
+
+function setFullscreenUi(isFull) {
+  document.body.classList.toggle('is-fullscreen', !!isFull);
+  document.body.classList.toggle('show-fs-titlebar', false);
+  document.body.classList.toggle('is-immersive', !!isFull || document.body.classList.contains('is-maximized'));
+  updateFullscreenButton(!!isFull);
 }
 
 function updateFullscreenButton(isFull) {
@@ -232,13 +240,13 @@ function formatTime(ms) {
   const h = Math.floor(totalMs / 3600000);
   const m = Math.floor((totalMs % 3600000) / 60000);
   const s = Math.floor((totalMs % 60000) / 1000);
-  const milli = totalMs % 1000;
+  const centi = Math.floor((totalMs % 1000) / 10);
   return {
     hh: String(h).padStart(2, '0'),
     mm: String(m).padStart(2, '0'),
     ss: String(s).padStart(2, '0'),
-    ms: String(milli).padStart(3, '0'),
-    str: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(milli).padStart(3, '0')}`
+    ms: String(centi).padStart(2, '0'),
+    str: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(centi).padStart(2, '0')}`
   };
 }
 

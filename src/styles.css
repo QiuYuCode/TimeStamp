@@ -148,9 +148,22 @@ body.is-immersive .timer-display {
   padding-top: 22px;
   padding-bottom: 14px;
 }
+body.is-fullscreen .timer-display {
+  font-size: clamp(130px, 17vw, 260px);
+  padding-top: 34px;
+  padding-bottom: 22px;
+}
 body.is-immersive .timer-actions .action-btn {
   width: 78px;
   height: 44px;
+}
+body.is-fullscreen .timer-actions .action-btn {
+  width: 92px;
+  height: 52px;
+}
+body.is-fullscreen .timer-actions .action-icon {
+  width: 24px;
+  height: 24px;
 }
 
 /* ---------- Layout ---------- */
